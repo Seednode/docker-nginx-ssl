@@ -18,6 +18,12 @@ ARG OPENSSL_VER="OpenSSL_1_1_1-stable"
 RUN git clone -b $OPENSSL_VER git://git.openssl.org/openssl.git /src/openssl
 RUN cd /src/openssl && ./config && make -j"$CORE_COUNT"
 
+# download zlib
+WORKDIR /src/zlib
+ARG ZLIB_VER="1.2.11"
+RUN curl -L -O "https://www.zlib.net/zlib-$ZLIB_VER.tar.gz"
+RUN tar xzf "zlib-$ZLIB_VER.tar.gz"
+
 # download nginx source
 WORKDIR /src/nginx
 ARG NGINX_VER
@@ -39,6 +45,7 @@ RUN ./configure --prefix=/usr/share/nginx \
 	--group=www-data \
 	--with-threads \
 	--with-file-aio \
+	--with-zlib="/src/zlib/zlib-$ZLIB_VER" \
 	--with-pcre="/src/pcre/pcre-$PCRE_VER" \
 	--with-pcre-jit \
 	--with-http_addition_module \
@@ -48,7 +55,6 @@ RUN ./configure --prefix=/usr/share/nginx \
 	--without-http_fastcgi_module \
 	--without-http_uwsgi_module \
 	--without-http_scgi_module \
-	--without-http_gzip_module \
 	--without-select_module \
 	--without-poll_module \
 	--without-mail_pop3_module \
