@@ -14,9 +14,10 @@ RUN tar xzf "/src/pcre/pcre-$PCRE_VER.tar.gz"
 RUN git clone https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex
 
 # download openssl
-ARG OPENSSL_VER="OpenSSL_1_1_1-stable"
+ARG OPENSSL_VER="openssl-3.0.0"
+WORKDIR /src/openssl
 RUN git clone -b $OPENSSL_VER git://git.openssl.org/openssl.git /src/openssl
-RUN cd /src/openssl && ./config && make -j"$CORE_COUNT"
+RUN ./config && make -j"$CORE_COUNT"
 
 # download zlib
 WORKDIR /src/zlib
