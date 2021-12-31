@@ -14,7 +14,7 @@ RUN tar xzf "/src/pcre/pcre-$PCRE_VER.tar.gz"
 RUN git clone https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex
 
 # download openssl
-ARG OPENSSL_VER="openssl-3.0.0"
+ARG OPENSSL_VER="openssl-3.0.1"
 WORKDIR /src/openssl
 RUN git clone -b $OPENSSL_VER git://git.openssl.org/openssl.git /src/openssl
 RUN ./config && make -j"$CORE_COUNT"
