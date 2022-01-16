@@ -63,7 +63,7 @@ RUN ./configure --prefix=/usr/share/nginx \
                 --without-mail_smtp_module \
                 --with-cc-opt="-Wl,--gc-sections -static -static-libgcc -O2 -ffunction-sections -fdata-sections -fPIE -fstack-protector-all -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security" \
                 --with-ld-opt="-static"
-ARG CORE_COUNT="1"
+ARG CORE_COUNT
 RUN make -j"$CORE_COUNT"
 RUN make install
 
