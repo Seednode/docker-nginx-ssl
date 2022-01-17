@@ -1,35 +1,52 @@
 # multi-stage build for dockerized nginx
 
 # set up nginx build container
-FROM alpine:latest AS nginx
-RUN apk add gcc g++ git curl gzip linux-headers make perl tar upx
+FROM debian:stable-slim AS nginx
+
+# allow multiarch builds
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT=""
+
+# install dependencies
+RUN apt-get update \
+    && apt-get install -y \
+        curl \
+        g++ \
+        gcc \
+        git \
+        make \
+        perl \
+        tar \
+        upx
 
 # download pcre library
 WORKDIR /src/pcre
-ARG PCRE_VER="8.44"
-RUN curl -L -O "https://cfhcable.dl.sourceforge.net/project/pcre/pcre/$PCRE_VER/pcre-$PCRE_VER.tar.gz"
-RUN tar xzf "/src/pcre/pcre-$PCRE_VER.tar.gz"
-
-# download fancy-index module
-RUN git clone https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex
+ARG PCRE_VER=8.44
+RUN curl -L -O "https://cfhcable.dl.sourceforge.net/project/pcre/pcre/$PCRE_VER/pcre-$PCRE_VER.tar.gz" \
+    && tar xzf "/src/pcre/pcre-$PCRE_VER.tar.gz"
 
 # download openssl
-ARG OPENSSL_VER="openssl-3.0.1"
+ARG OPENSSL_VER=openssl-3.0.1
 WORKDIR /src/openssl
 RUN git clone -b $OPENSSL_VER git://git.openssl.org/openssl.git /src/openssl
+ARG CORE_COUNT=1
 RUN ./config && make -j"$CORE_COUNT"
 
 # download zlib
 WORKDIR /src/zlib
-ARG ZLIB_VER="1.2.11"
-RUN curl -L -O "https://www.zlib.net/zlib-$ZLIB_VER.tar.gz"
-RUN tar xzf "zlib-$ZLIB_VER.tar.gz"
+ARG ZLIB_VER=1.2.11
+RUN curl -L -O "https://www.zlib.net/zlib-$ZLIB_VER.tar.gz" \
+    && tar xzf "zlib-$ZLIB_VER.tar.gz"
+
+# download fancy-index module
+RUN git clone https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex
 
 # download nginx source
 WORKDIR /src/nginx
 ARG NGINX_VER
-RUN curl -L -O "http://nginx.org/download/nginx-$NGINX_VER.tar.gz"
-RUN tar xzf "nginx-$NGINX_VER.tar.gz"
+RUN curl -L -O "http://nginx.org/download/nginx-$NGINX_VER.tar.gz" \
+    && tar xzf "nginx-$NGINX_VER.tar.gz"
 
 # configure and build nginx
 WORKDIR /src/nginx/nginx-"$NGINX_VER"
@@ -59,22 +76,21 @@ RUN ./configure --prefix=/usr/share/nginx \
                 --without-mail_imap_module \
                 --without-mail_smtp_module \
                 --with-cc-opt="-Wl,--gc-sections -static -static-libgcc -O2 -ffunction-sections -fdata-sections -fPIE -fstack-protector-all -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security" \
-                --with-ld-opt="-static"
-ARG CORE_COUNT
-RUN make -j"$CORE_COUNT"
-RUN make install
+                --with-ld-opt="-static" \
+    && make -j"$CORE_COUNT" \
+    && make install
 
 # strip and compress nginx binary
-RUN strip -s /usr/sbin/nginx
-RUN upx -9 /usr/sbin/nginx
+RUN strip -s /usr/sbin/nginx \
+    && upx -9 /usr/sbin/nginx
 
 # setup nginx folders and files
-RUN mkdir -p /etc/nginx
-RUN touch /tmp/nginx.pid
-RUN mkdir -p /tmp/nginx/{client,proxy} && chmod 700 /tmp/nginx/{client,proxy}
-RUN mkdir -p /usr/share/nginx/fastcgi_temp && chmod 700 /usr/share/nginx/fastcgi_temp
-RUN mkdir -p /var/log/nginx && chmod 700 /var/log/nginx
-RUN mkdir -p /var/www/html
+RUN mkdir -p /etc/nginx \
+    && mkdir -p /tmp/nginx/{client,proxy} \
+    && mkdir -p /usr/share/nginx/fastcgi_temp \
+    && mkdir -p /var/log/nginx \
+    && mkdir -p /var/www/html \
+    && touch /tmp/nginx.pid
 
 # copy in default nginx configs
 COPY nginx/ /etc/nginx/
