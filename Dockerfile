@@ -2,7 +2,7 @@
 
 # set up nginx build container
 FROM alpine:latest AS nginx
-RUN apk add gcc g++ git curl make linux-headers tar gzip perl
+RUN apk add gcc g++ git curl gzip linux-headers make perl tar upx
 
 # download pcre library
 WORKDIR /src/pcre
@@ -38,12 +38,10 @@ RUN ./configure --prefix=/usr/share/nginx \
                 --conf-path=/etc/nginx/nginx.conf \
                 --error-log-path=/var/log/nginx/error.log \
                 --http-log-path=/var/log/nginx/access.log \
-                --pid-path=/run/nginx.pid \
+                --pid-path=/tmp/nginx.pid \
                 --lock-path=/run/lock/subsys/nginx \
                 --http-client-body-temp-path=/tmp/nginx/client \
                 --http-proxy-temp-path=/tmp/nginx/proxy \
-                --user=www-data \
-                --group=www-data \
                 --with-threads \
                 --with-file-aio \
                 --with-zlib="/src/zlib/zlib-$ZLIB_VER" \
@@ -53,7 +51,6 @@ RUN ./configure --prefix=/usr/share/nginx \
                 --with-http_ssl_module \
                 --add-module=/src/ngx-fancyindex \
                 --with-openssl="/src/openssl" \
-                --without-http_fastcgi_module \
                 --without-http_uwsgi_module \
                 --without-http_scgi_module \
                 --without-select_module \
@@ -67,23 +64,39 @@ ARG CORE_COUNT
 RUN make -j"$CORE_COUNT"
 RUN make install
 
-# set up the final container
-FROM alpine:latest
+# strip and compress nginx binary
+RUN strip -s /usr/sbin/nginx
+RUN upx -9 /usr/sbin/nginx
+
+# setup nginx folders and files
+RUN mkdir -p /etc/nginx
+RUN touch /tmp/nginx.pid
+RUN mkdir -p /tmp/nginx/{client,proxy} && chmod 700 /tmp/nginx/{client,proxy}
+RUN mkdir -p /usr/share/nginx/fastcgi_temp && chmod 700 /usr/share/nginx/fastcgi_temp
+RUN mkdir -p /var/log/nginx && chmod 700 /var/log/nginx
+RUN mkdir -p /var/www/html
 
 # copy in default nginx configs
 COPY nginx/ /etc/nginx/
 
-# setup nginx folders and files
-RUN adduser www-data -D -H -G www-data
-RUN chown -R www-data:www-data /etc/nginx
-RUN mkdir -p /tmp/nginx/{client,proxy} && chown -R www-data:www-data /tmp/nginx/
-RUN mkdir -p /var/log/nginx && chown -R www-data:www-data /var/log/nginx
-RUN mkdir -p /var/www/html && chown -R www-data:www-data /var/www/html
-RUN touch /run/nginx.pid && chown www-data:www-data /run/nginx.pid
-RUN mkdir -p /etc/nginx 
+# set up the final container
+FROM gcr.io/distroless/static:nonroot
 
-# add nginx binary
-COPY --from=nginx /usr/sbin/nginx /usr/sbin/nginx
+# run as nonroot
+USER nonroot
+
+# copy files over
+COPY --from=nginx --chown=nonroot:nonroot /etc/nginx /etc/nginx
+COPY --from=nginx --chown=nonroot:nonroot /tmp/nginx.pid /tmp/nginx.pid
+COPY --from=nginx --chown=nonroot:nonroot /tmp/nginx /tmp/nginx
+COPY --from=nginx --chown=nonroot:nonroot /usr/sbin/nginx /usr/sbin/nginx
+COPY --from=nginx --chown=nonroot:nonroot /usr/share/nginx/fastcgi_temp /usr/share/nginx/fastcgi_temp
+COPY --from=nginx --chown=nonroot:nonroot /var/log/nginx /var/log/nginx
+COPY --from=nginx --chown=nonroot:nonroot /var/www/html /var/www/html
+COPY --chown=nonroot:nonroot html/index.html /var/www/html/index.html
+
+# listen on an unprivileged port
+EXPOSE 8080
 
 # configure entrypoint
 ENTRYPOINT ["/usr/sbin/nginx","-g","daemon off;"]
