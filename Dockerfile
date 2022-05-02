@@ -39,6 +39,11 @@ ARG ZLIB_VER=1.2.12
 RUN curl -L -O "https://www.zlib.net/zlib-${ZLIB_VER}.tar.gz" \
     && tar xzf "zlib-${ZLIB_VER}.tar.gz"
 
+# download brotli module
+WORKDIR /src/ngx_brotli
+RUN git clone https://github.com/google/ngx_brotli.git /src/ngx_brotli \
+    && git submodule update --init
+
 # download fancy-index module
 RUN git clone https://github.com/aperezdc/ngx-fancyindex.git /src/ngx-fancyindex
 
@@ -69,8 +74,9 @@ RUN ./configure --prefix=/usr/share/nginx \
                 --with-http_ssl_module \
                 --with-http_stub_status_module \
                 --with-http_sub_module \
+                --add-module=/src/ngx_brotli \
                 --add-module=/src/ngx-fancyindex \
-                --with-openssl="/src/openssl" \
+                --with-openssl=/src/openssl \
                 --without-http_uwsgi_module \
                 --without-http_scgi_module \
                 --without-select_module \
