@@ -1,7 +1,7 @@
 # multi-stage build for dockerized nginx
 
 # set up nginx build container
-FROM debian:stable-slim AS nginx
+FROM debian:testing-slim AS nginx
 
 # allow multiarch builds
 ARG TARGETOS
