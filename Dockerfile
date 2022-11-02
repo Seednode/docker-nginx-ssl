@@ -3,11 +3,6 @@
 # set up nginx build container
 FROM debian:testing-slim AS nginx
 
-# allow multiarch builds
-ARG TARGETOS
-ARG TARGETARCH
-ARG TARGETVARIANT=""
-
 # install dependencies
 RUN apt-get update \
     && apt-get install -y \
